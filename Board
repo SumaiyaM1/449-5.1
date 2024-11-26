@@ -1,0 +1,79 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+
+public class Board extends JPanel {
+    private static final long serialVersionUID = 1L;
+    private final BoardLabel[][] boardLabels;
+    private final Game game;
+
+    public Board(int size, Game game) {
+        this.game = game;
+        setLayout(new GridLayout(size, size));
+        boardLabels = new BoardLabel[size][size];
+
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                boardLabels[i][j] = new BoardLabel(i, j);
+                boardLabels[i][j].setBorder(BorderFactory.createLineBorder(Color.BLACK));
+                boardLabels[i][j].setPreferredSize(new Dimension(50, 50));
+                boardLabels[i][j].setHorizontalAlignment(SwingConstants.CENTER);
+                boardLabels[i][j].setFont(new Font("Arial", Font.BOLD, 24));
+                boardLabels[i][j].addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+                        if (!game.getCurrentPlayer().isComputerPlayer()) {
+                            handlePlayerMove((BoardLabel) e.getSource());
+                        }
+                    }
+                });
+                add(boardLabels[i][j]);
+            }
+        }
+    }
+
+    public int getBoardSize() {
+        return boardLabels.length;
+    }
+
+    public BoardLabel[][] getBoardLabels() {
+        return boardLabels;
+    }
+
+    public boolean checkForSOS(int x, int y, String symbol) {
+        return (checkPattern(x, y, -1, 0, "S", "O", "S") || 
+                checkPattern(x, y, 1, 0, "S", "O", "S") || 
+                checkPattern(x, y, 0, -1, "S", "O", "S") ||
+                checkPattern(x, y, 0, 1, "S", "O", "S") || 
+                checkPattern(x, y, -1, -1, "S", "O", "S") ||
+                checkPattern(x, y, 1, 1, "S", "O", "S") || 
+                checkPattern(x, y, -1, 1, "S", "O", "S") ||
+                checkPattern(x, y, 1, -1, "S", "O", "S"));
+    }
+
+    private boolean checkPattern(int x, int y, int dx, int dy, String first, String second, String third) {
+        try {
+            String start = boardLabels[x][y].getText();
+            String mid = boardLabels[x + dx][y + dy].getText();
+            String end = boardLabels[x + 2 * dx][y + 2 * dy].getText();
+
+            return start.equals(first) && mid.equals(second) && end.equals(third);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            return false;
+        }
+    }
+
+    private void handlePlayerMove(BoardLabel label) {
+        if (!label.getText().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Invalid Move: This cell is already occupied. Try again!", "Invalid Move", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        Player currentPlayer = game.getCurrentPlayer();
+        String symbol = currentPlayer.getSymbol();
+        label.setText(symbol);
+
+        game.processMove(label.getI(), label.getJ(), symbol);
+    }
+}
