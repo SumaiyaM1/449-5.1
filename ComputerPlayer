@@ -1,0 +1,17 @@
+import java.util.Random;
+
+public class ComputerPlayer extends Player {
+    public ComputerPlayer(String name, Game game) {
+        super(name, game, true);
+    }
+
+    @Override
+    public void makeMove() {
+        game.makeComputerMove();
+    }
+
+    @Override
+    public String getSymbol() {
+        return new Random().nextBoolean() ? "S" : "O";
+    }
+}
