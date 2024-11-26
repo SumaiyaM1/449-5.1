@@ -1,0 +1,28 @@
+import javax.swing.JOptionPane;
+
+public class HumanPlayer extends Player {
+    public HumanPlayer(String name, Game game) {
+        super(name, game, false);
+    }
+
+    @Override
+    public void makeMove() {
+    }
+
+    @Override
+    public String getSymbol() {
+        String[] options = {"S", "O"};
+        int choice = JOptionPane.showOptionDialog(
+                null,
+                "Select your symbol:",
+                "Symbol Selection",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.INFORMATION_MESSAGE,
+                null,
+                options,
+                options[0]
+        );
+
+        return choice == 1 ? "O" : "S";
+    }
+}
