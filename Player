@@ -1,0 +1,23 @@
+public abstract class Player {
+    protected String name;
+    protected Game game;
+    protected boolean isComputer;
+
+    public Player(String name, Game game, boolean isComputer) {
+        this.name = name;
+        this.game = game;
+        this.isComputer = isComputer;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public boolean isComputerPlayer() {
+        return isComputer;
+    }
+
+    public abstract void makeMove();
+
+    public abstract String getSymbol();
+}
