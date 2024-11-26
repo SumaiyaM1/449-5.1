@@ -1,0 +1,349 @@
+import javax.swing.*;
+import java.awt.*;
+import java.io.*;
+import java.util.Random;
+
+public class Game extends JPanel {
+    private static final long serialVersionUID = 1L;
+
+    private boolean playerTurn = true;
+    private Player bluePlayer;
+    private Player redPlayer;
+    private Board board;
+
+    private JLabel turnLabel;
+    private JLabel gameModeLabel;
+    private JLabel boardSizeLabel;
+    private JLabel blueScoreLabel;
+    private JLabel redScoreLabel;
+
+    private JRadioButton blueHumanButton, blueComputerButton, blueSButton, blueOButton;
+    private JRadioButton redHumanButton, redComputerButton, redSButton, redOButton;
+
+    private JCheckBox recordCheckBox;
+    private JButton replayButton, newGameButton, startButton;
+
+    private String gameMode = "Simple";
+    private int boardSize = 8;
+    private int blueSOSCount = 0;
+    private int redSOSCount = 0;
+
+    private File recordFile;
+    private BufferedWriter writer;
+
+    public Game() {
+        setLayout(new BorderLayout());
+        JPanel bluePlayerPanel = createPlayerPanel("Blue Player", true);
+        JPanel redPlayerPanel = createPlayerPanel("Red Player", false);
+        JPanel infoPanel = createInfoPanel();
+        JPanel controlPanel = createControlPanel();
+        board = new Board(boardSize, this);
+        JPanel boardPanel = new JPanel(new BorderLayout());
+        boardPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        boardPanel.add(board, BorderLayout.CENTER);
+        add(bluePlayerPanel, BorderLayout.WEST);
+        add(boardPanel, BorderLayout.CENTER);
+        add(redPlayerPanel, BorderLayout.EAST);
+        add(infoPanel, BorderLayout.NORTH);
+        add(controlPanel, BorderLayout.SOUTH);
+        showGameSetupDialog();
+    }
+
+    private JPanel createPlayerPanel(String playerName, boolean isBlue) {
+        JPanel playerPanel = new JPanel();
+        playerPanel.setLayout(new BoxLayout(playerPanel, BoxLayout.Y_AXIS));
+        playerPanel.setBorder(BorderFactory.createTitledBorder(playerName));
+        JRadioButton humanButton = new JRadioButton("Human");
+        JRadioButton computerButton = new JRadioButton("Computer");
+        ButtonGroup typeGroup = new ButtonGroup();
+        typeGroup.add(humanButton);
+        typeGroup.add(computerButton);
+        JRadioButton sButton = new JRadioButton("S");
+        JRadioButton oButton = new JRadioButton("O");
+        ButtonGroup symbolGroup = new ButtonGroup();
+        symbolGroup.add(sButton);
+        symbolGroup.add(oButton);
+        humanButton.setSelected(true);
+        sButton.setSelected(true);
+        JLabel scoreLabel = new JLabel("SOS: 0");
+        if (isBlue) {
+            blueHumanButton = humanButton;
+            blueComputerButton = computerButton;
+            blueSButton = sButton;
+            blueOButton = oButton;
+            blueScoreLabel = scoreLabel;
+        } else {
+            redHumanButton = humanButton;
+            redComputerButton = computerButton;
+            redSButton = sButton;
+            redOButton = oButton;
+            redScoreLabel = scoreLabel;
+        }
+        playerPanel.add(new JLabel("Player Type:"));
+        playerPanel.add(humanButton);
+        playerPanel.add(computerButton);
+        playerPanel.add(new JLabel("Select Symbol:"));
+        playerPanel.add(sButton);
+        playerPanel.add(oButton);
+        playerPanel.add(scoreLabel);
+        return playerPanel;
+    }
+
+    private JPanel createInfoPanel() {
+        JPanel infoPanel = new JPanel(new FlowLayout());
+        gameModeLabel = new JLabel("Game Mode: " + gameMode);
+        boardSizeLabel = new JLabel("Board Size: " + boardSize);
+        turnLabel = new JLabel("Current Turn: Blue");
+        infoPanel.add(gameModeLabel);
+        infoPanel.add(boardSizeLabel);
+        infoPanel.add(turnLabel);
+        return infoPanel;
+    }
+
+    private JPanel createControlPanel() {
+        JPanel controlPanel = new JPanel(new FlowLayout());
+        replayButton = new JButton("Replay");
+        replayButton.setEnabled(false);
+        newGameButton = new JButton("New Game");
+        startButton = new JButton("Start");
+        recordCheckBox = new JCheckBox("Record Game");
+        controlPanel.add(recordCheckBox);
+        controlPanel.add(replayButton);
+        controlPanel.add(newGameButton);
+        controlPanel.add(startButton);
+        newGameButton.addActionListener(e -> startNewGame());
+        replayButton.addActionListener(e -> replayGame());
+        startButton.addActionListener(e -> startAutoPlay());
+        return controlPanel;
+    }
+
+    private void showGameSetupDialog() {
+        String[] gameModes = {"Simple", "General"};
+        JComboBox<String> gameModeDropdown = new JComboBox<>(gameModes);
+        gameModeDropdown.setSelectedItem(gameMode);
+        JComboBox<Integer> boardSizeDropdown = new JComboBox<>();
+        for (int i = 3; i <= 10; i++) {
+            boardSizeDropdown.addItem(i);
+        }
+        boardSizeDropdown.setSelectedItem(boardSize);
+        JPanel dialogPanel = new JPanel(new GridLayout(2, 2));
+        dialogPanel.add(new JLabel("Select Game Mode:"));
+        dialogPanel.add(gameModeDropdown);
+        dialogPanel.add(new JLabel("Select Board Size:"));
+        dialogPanel.add(boardSizeDropdown);
+        int result = JOptionPane.showConfirmDialog(this, dialogPanel, "Game Setup", JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            gameMode = (String) gameModeDropdown.getSelectedItem();
+            boardSize = (int) boardSizeDropdown.getSelectedItem();
+            updateGameSettings();
+        } else {
+            System.exit(0);
+        }
+    }
+
+    private void updateGameSettings() {
+        gameModeLabel.setText("Game Mode: " + gameMode);
+        boardSizeLabel.setText("Board Size: " + boardSize);
+        resetBoard(boardSize);
+    }
+
+    private void startNewGame() {
+        initializePlayers();
+        resetScores();
+        resetBoard(boardSize);
+        if (recordCheckBox.isSelected()) {
+            startRecording();
+        }
+        turnLabel.setText("Current Turn: Blue");
+    }
+
+    private void startAutoPlay() {
+        if (bluePlayer.isComputerPlayer() && redPlayer.isComputerPlayer()) {
+            new Thread(() -> {
+                while (!isBoardFull()) {
+                    getCurrentPlayer().makeMove();
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                declareWinner();
+            }).start();
+        } else {
+            JOptionPane.showMessageDialog(this, "Both players must be computers to start autoplay.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public void makeComputerMove() {
+        int size = board.getBoardSize();
+        String symbol = getCurrentPlayer().getSymbol();
+        if (tryToWinOrBlock("S") || tryToWinOrBlock("O")) return;
+        Random random = new Random();
+        boolean moveMade = false;
+        while (!moveMade) {
+            int i = random.nextInt(size);
+            int j = random.nextInt(size);
+            if (board.getBoardLabels()[i][j].getText().isEmpty()) {
+                board.getBoardLabels()[i][j].setText(symbol);
+                moveMade = true;
+                processMove(i, j, symbol);
+            }
+        }
+    }
+
+    private boolean tryToWinOrBlock(String symbol) {
+        int size = board.getBoardSize();
+        String opponentSymbol = symbol.equals("S") ? "O" : "S";
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                if (board.getBoardLabels()[i][j].getText().isEmpty()) {
+                    board.getBoardLabels()[i][j].setText(symbol);
+                    if (board.checkForSOS(i, j, symbol)) {
+                        processMove(i, j, symbol);
+                        return true;
+                    }
+                    board.getBoardLabels()[i][j].setText("");
+                    board.getBoardLabels()[i][j].setText(opponentSymbol);
+                    if (board.checkForSOS(i, j, opponentSymbol)) {
+                        board.getBoardLabels()[i][j].setText(symbol);
+                        processMove(i, j, symbol);
+                        return true;
+                    }
+                    board.getBoardLabels()[i][j].setText("");
+                }
+            }
+        }
+        return false;
+    }
+
+    public void processMove(int i, int j, String symbol) {
+        boolean sosFormed = board.checkForSOS(i, j, symbol);
+        if (sosFormed) {
+            if (playerTurn) {
+                blueSOSCount++;
+                blueScoreLabel.setText("SOS: " + blueSOSCount);
+            } else {
+                redSOSCount++;
+                redScoreLabel.setText("SOS: " + redSOSCount);
+            }
+            if (gameMode.equals("Simple")) {
+                declareWinner();
+                return;
+            }
+        }
+        if (isBoardFull()) {
+            if (gameMode.equals("General")) {
+                declareWinner();
+            } else {
+                JOptionPane.showMessageDialog(this, "It's a draw!", "Game Over", JOptionPane.INFORMATION_MESSAGE);
+            }
+            resetBoard(boardSize);
+            return;
+        }
+        playerTurn = !playerTurn;
+        turnLabel.setText("Current Turn: " + (playerTurn ? "Blue" : "Red"));
+        if (getCurrentPlayer().isComputerPlayer()) {
+            getCurrentPlayer().makeMove();
+        }
+    }
+
+    private boolean isBoardFull() {
+        for (BoardLabel[] row : board.getBoardLabels()) {
+            for (BoardLabel label : row) {
+                if (label.getText().isEmpty()) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private void declareWinner() {
+        String message;
+        if (gameMode.equals("Simple")) {
+            message = (playerTurn ? "Blue" : "Red") + " Player wins!";
+        } else {
+            if (blueSOSCount > redSOSCount) {
+                message = "Blue Player wins with " + blueSOSCount + " SOS patterns!";
+            } else if (redSOSCount > blueSOSCount) {
+                message = "Red Player wins with " + redSOSCount + " SOS patterns!";
+            } else {
+                message = "It's a draw! Both players completed " + blueSOSCount + " SOS patterns.";
+            }
+        }
+        JOptionPane.showMessageDialog(this, message, "Game Over", JOptionPane.INFORMATION_MESSAGE);
+        stopRecording();
+        resetBoard(boardSize);
+    }
+
+    private void initializePlayers() {
+        bluePlayer = blueHumanButton.isSelected()
+                ? new HumanPlayer("Blue Player", this)
+                : new ComputerPlayer("Blue Player", this);
+        redPlayer = redHumanButton.isSelected()
+                ? new HumanPlayer("Red Player", this)
+                : new ComputerPlayer("Red Player", this);
+    }
+
+    private void resetScores() {
+        blueSOSCount = 0;
+        redSOSCount = 0;
+        blueScoreLabel.setText("SOS: 0");
+        redScoreLabel.setText("SOS: 0");
+    }
+
+    private void resetBoard(int size) {
+        remove(board);
+        board = new Board(size, this);
+        add(board, BorderLayout.CENTER);
+        revalidate();
+        repaint();
+    }
+
+    private void startRecording() {
+        try {
+            recordFile = new File("game_record.txt");
+            writer = new BufferedWriter(new FileWriter(recordFile));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void stopRecording() {
+        try {
+            if (writer != null) {
+                writer.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void replayGame() {
+        if (recordFile == null || !recordFile.exists()) {
+            JOptionPane.showMessageDialog(this, "No recorded game to replay!", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(new FileReader(recordFile))) {
+                String line;
+                resetBoard(boardSize);
+                while ((line = reader.readLine()) != null) {
+                    String[] parts = line.split(",");
+                    int i = Integer.parseInt(parts[0]);
+                    int j = Integer.parseInt(parts[1]);
+                    String symbol = parts[2];
+                    SwingUtilities.invokeLater(() -> board.getBoardLabels()[i][j].setText(symbol));
+                    Thread.sleep(500);
+                }
+            } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    public Player getCurrentPlayer() {
+        return playerTurn ? bluePlayer : redPlayer;
+    }
+}
