@@ -1,0 +1,73 @@
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class GameRecord {
+    private String gameMode;
+    private int boardSize;
+    private String bluePlayerType;
+    private String redPlayerType;
+    private List<String> moves;
+
+    public GameRecord(String gameMode, int boardSize, String bluePlayerType, String redPlayerType) {
+        this.gameMode = gameMode;
+        this.boardSize = boardSize;
+        this.bluePlayerType = bluePlayerType;
+        this.redPlayerType = redPlayerType;
+        this.moves = new ArrayList<>();
+    }
+
+    public void addMove(String player, int x, int y, String symbol) {
+        moves.add(player + "," + x + "," + y + "," + symbol);
+    }
+
+    public void saveToFile(String fileName) throws IOException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
+            writer.write("GameMode:" + gameMode + "\n");
+            writer.write("BoardSize:" + boardSize + "\n");
+            writer.write("BluePlayer:" + bluePlayerType + "\n");
+            writer.write("RedPlayer:" + redPlayerType + "\n");
+            writer.write("Moves:\n");
+            for (String move : moves) {
+                writer.write(move + "\n");
+            }
+        }
+    }
+
+    public static GameRecord loadFromFile(String fileName) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new FileReader(fileName))) {
+            String gameMode = reader.readLine().split(":")[1];
+            int boardSize = Integer.parseInt(reader.readLine().split(":")[1]);
+            String bluePlayerType = reader.readLine().split(":")[1];
+            String redPlayerType = reader.readLine().split(":")[1];
+
+            GameRecord record = new GameRecord(gameMode, boardSize, bluePlayerType, redPlayerType);
+            reader.readLine();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                record.moves.add(line);
+            }
+            return record;
+        }
+    }
+
+    public List<String> getMoves() {
+        return moves;
+    }
+
+    public int getBoardSize() {
+        return boardSize;
+    }
+
+    public String getGameMode() {
+        return gameMode;
+    }
+
+    public String getBluePlayerType() {
+        return bluePlayerType;
+    }
+
+    public String getRedPlayerType() {
+        return redPlayerType;
+    }
+}
